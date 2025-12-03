@@ -179,7 +179,7 @@ public class DnsServer implements Closeable {
     @Override
     public void close() {
         if (!running.compareAndSet(true, false))
-            return; // 이미 close됨
+            return;
 
         for (DatagramSocket socket : udpSockets) {
             if (socket != null && !socket.isClosed())

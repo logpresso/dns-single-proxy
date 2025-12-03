@@ -181,7 +181,6 @@ public class DnsCache {
             if (cachedAdjustedMessage != null && (now - lastAdjustmentTime) < TTL_ADJUSTMENT_INTERVAL_MS)
                 return cachedAdjustedMessage;
 
-            // TTL 조정 수행
             Message adjusted = adjustTtl(now);
             cachedAdjustedMessage = adjusted;
             lastAdjustmentTime = now;
