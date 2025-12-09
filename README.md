@@ -43,7 +43,21 @@
   - 같은 키를 여러 줄로 작성하면 모두 누적됨
   - 공백으로 구분된 여러 값도 지원
 
-#### 3.4 DNS 설정 예시
+#### 3.4 DNS 서버 우선순위 (systemd-resolved 호환)
+```
+1. resolved.conf의 DNS= 설정
+       ↓ (없으면)
+2. /etc/resolv.conf의 nameserver 항목
+       ↓ (없으면)
+3. 기본값 8.8.8.8
+```
+
+**참고:**
+- `/etc/resolv.conf` 파싱 시 localhost (127.0.0.1, 127.0.0.53, ::1) 주소는 무시
+- `DNS=` 설정이 있으면 `/etc/resolv.conf`는 사용하지 않음
+- `FallbackDNS=`는 Primary DNS 전체 실패 시에만 사용
+
+#### 3.5 DNS 설정 예시
 ```ini
 [Resolve]
 # 방법 1: 공백으로 구분

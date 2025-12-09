@@ -20,6 +20,7 @@ public class ResolvedConfigParser {
     private static final Logger logger = LoggerFactory.getLogger(ResolvedConfigParser.class);
 
     private static final String CONFIG_DROP_IN_DIR = "/etc/systemd/resolved.conf.d";
+    private static final String RESOLV_CONF_PATH = "/etc/resolv.conf";
 
     public ResolvedConfig parse(String configPath) {
         ResolvedConfig.Builder builder = ResolvedConfig.builder();
@@ -33,6 +34,11 @@ public class ResolvedConfigParser {
         Path dropInDir = Paths.get(CONFIG_DROP_IN_DIR);
         if (Files.exists(dropInDir) && Files.isDirectory(dropInDir))
             parseDropInDirectory(dropInDir, builder);
+
+        // If no DNS= configured, fall back to /etc/resolv.conf (systemd-resolved compatible behavior)
+        if (!builder.hasDns()) {
+            parseResolvConf(builder);
+        }
 
         ResolvedConfig config = builder.build();
         logger.info("logpresso dnsproxy: Configuration loaded: {}", config);
@@ -148,6 +154,59 @@ public class ResolvedConfigParser {
         return value.equalsIgnoreCase("yes") ||
                value.equalsIgnoreCase("true") ||
                value.equals("1");
+    }
+
+    protected String getResolvConfPath() {
+        return RESOLV_CONF_PATH;
+    }
+
+    private void parseResolvConf(ResolvedConfig.Builder builder) {
+        Path resolvConf = Paths.get(getResolvConfPath());
+        if (!Files.exists(resolvConf)) {
+            logger.debug("logpresso dnsproxy: {} not found, skipping", RESOLV_CONF_PATH);
+            return;
+        }
+
+        List<String> nameservers = new ArrayList<>();
+
+        try (BufferedReader reader = Files.newBufferedReader(resolvConf)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+
+                // Skip comments and empty lines
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
+                    continue;
+
+                // Parse nameserver entries
+                if (line.startsWith("nameserver")) {
+                    String[] parts = line.split("\\s+", 2);
+                    if (parts.length >= 2 && !parts[1].isEmpty()) {
+                        String server = parts[1].trim();
+                        // Skip localhost entries (often points to systemd-resolved stub)
+                        if (!isLocalhost(server)) {
+                            nameservers.add(server);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.warn("logpresso dnsproxy: Failed to parse {}: {}", RESOLV_CONF_PATH, e.getMessage());
+            return;
+        }
+
+        if (!nameservers.isEmpty()) {
+            logger.info("logpresso dnsproxy: No DNS= configured, using {} nameservers from {}",
+                    nameservers.size(), RESOLV_CONF_PATH);
+            builder.dns(nameservers);
+        }
+    }
+
+    private boolean isLocalhost(String server) {
+        return server.equals("127.0.0.1") ||
+               server.equals("127.0.0.53") ||
+               server.equals("::1") ||
+               server.startsWith("127.");
     }
 
 }

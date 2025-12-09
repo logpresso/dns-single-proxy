@@ -104,6 +104,10 @@ public final class ResolvedConfig {
             return this;
         }
 
+        public boolean hasDns() {
+            return !dns.isEmpty();
+        }
+
         public ResolvedConfig build() {
             // Apply defaults if empty
             if (dns.isEmpty()) {
