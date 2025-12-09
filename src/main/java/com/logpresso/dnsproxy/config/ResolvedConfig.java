@@ -1,5 +1,6 @@
 package com.logpresso.dnsproxy.config;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ResolvedConfig {
@@ -61,22 +62,25 @@ public final class ResolvedConfig {
     }
 
     public static final class Builder {
-        private List<String> dns = List.of("8.8.8.8");
-        private List<String> fallbackDns = List.of("1.1.1.1");
+        private List<String> dns = new ArrayList<>();
+        private List<String> fallbackDns = new ArrayList<>();
         private boolean cache = true;
         private boolean dnsStubListener = true;
-        private List<String> dnsStubListenerExtra = List.of();
+        private List<String> dnsStubListenerExtra = new ArrayList<>();
         private String bindAddress = "127.0.0.53";
+
+        private static final List<String> DEFAULT_DNS = List.of("8.8.8.8");
+        private static final List<String> DEFAULT_FALLBACK_DNS = List.of("1.1.1.1");
 
         private Builder() {}
 
         public Builder dns(List<String> dns) {
-            this.dns = dns;
+            this.dns.addAll(dns);
             return this;
         }
 
         public Builder fallbackDns(List<String> fallbackDns) {
-            this.fallbackDns = fallbackDns;
+            this.fallbackDns.addAll(fallbackDns);
             return this;
         }
 
@@ -91,7 +95,7 @@ public final class ResolvedConfig {
         }
 
         public Builder dnsStubListenerExtra(List<String> dnsStubListenerExtra) {
-            this.dnsStubListenerExtra = dnsStubListenerExtra;
+            this.dnsStubListenerExtra.addAll(dnsStubListenerExtra);
             return this;
         }
 
@@ -101,6 +105,13 @@ public final class ResolvedConfig {
         }
 
         public ResolvedConfig build() {
+            // Apply defaults if empty
+            if (dns.isEmpty()) {
+                dns.addAll(DEFAULT_DNS);
+            }
+            if (fallbackDns.isEmpty()) {
+                fallbackDns.addAll(DEFAULT_FALLBACK_DNS);
+            }
             return new ResolvedConfig(this);
         }
     }

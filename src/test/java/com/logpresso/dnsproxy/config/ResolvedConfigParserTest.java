@@ -103,4 +103,41 @@ class ResolvedConfigParserTest {
         assertFalse(new ResolvedConfigParser().parse(configFile.toString()).isCache());
     }
 
+    @Test
+    void testParseMultipleDnsLines() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile,
+                "[Resolve]\n" +
+                "DNS=1.1.1.1\n" +
+                "DNS=8.8.8.8\n" +
+                "DNS=9.9.9.9\n" +
+                "FallbackDNS=1.0.0.1\n" +
+                "FallbackDNS=8.8.4.4\n");
+
+        ResolvedConfigParser parser = new ResolvedConfigParser();
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // Multiple lines should accumulate
+        assertEquals(List.of("1.1.1.1", "8.8.8.8", "9.9.9.9"), config.getDns());
+        assertEquals(List.of("1.0.0.1", "8.8.4.4"), config.getFallbackDns());
+    }
+
+    @Test
+    void testParseMixedDnsFormat() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile,
+                "[Resolve]\n" +
+                "DNS=1.1.1.1 8.8.8.8\n" +
+                "DNS=9.9.9.9\n" +
+                "FallbackDNS=1.0.0.1 8.8.4.4\n" +
+                "FallbackDNS=4.4.4.4\n");
+
+        ResolvedConfigParser parser = new ResolvedConfigParser();
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // Space-separated and multiple lines should all accumulate
+        assertEquals(List.of("1.1.1.1", "8.8.8.8", "9.9.9.9"), config.getDns());
+        assertEquals(List.of("1.0.0.1", "8.8.4.4", "4.4.4.4"), config.getFallbackDns());
+    }
+
 }
