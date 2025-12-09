@@ -57,18 +57,19 @@
 | 포트 | 53 |
 
 #### 4.3 응답 필터링 로직
-java
+```java
 // Pseudocode
 Map<Integer, ResourceRecord> seen = new HashMap<>();
 List<ResourceRecord> filtered = new ArrayList<>();
 for (ResourceRecord rr : response.getAnswers()) {
-int type = rr.getType();  // A=1, AAAA=28, CNAME=5, ...
-if (!seen.containsKey(type)) {
-seen.put(type, rr);
-filtered.add(rr);
-}
+    int type = rr.getType();  // A=1, AAAA=28, CNAME=5, ...
+    if (!seen.containsKey(type)) {
+        seen.put(type, rr);
+        filtered.add(rr);
+    }
 }
 response.setAnswers(filtered);
+```
 
 ### 5. 캐시 스펙
 | 항목 | 값 |
@@ -96,27 +97,30 @@ com.logpresso.dnsproxy
 └── DnsCache.java            # TTL 캐시
 
 ### 7. 의존성
-xml
+```xml
 <!-- DNS 메시지 파싱 -->
 <dependency>
     <groupId>dnsjava</groupId>
     <artifactId>dnsjava</artifactId>
     <version>3.5.3</version>
 </dependency>
+```
 또는 직접 파싱 (외부 의존성 제거 시)
 
 ### 8. 실행/배포
 
 #### 8.1 빌드
-bash
+```bash
 mvn clean package -DskipTests
 # 결과: target/dns-single-proxy.jar
+```
 
 #### 8.2 실행
-bash
+```bash
 java -jar dns-single-proxy.jar
 # 또는 설정 경로 지정
 java -jar dns-single-proxy.jar --config /etc/systemd/resolved.conf
+```
 
 #### 8.3 Systemd 서비스
 ini
