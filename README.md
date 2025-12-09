@@ -81,6 +81,7 @@ response.setAnswers(filtered);
 | 네거티브 캐시 | NXDOMAIN 30초 |
 
 ### 6. 클래스 구조
+```
 com.logpresso.dnsproxy
 ├── Main.java                    # 엔트리포인트
 ├── config/
@@ -95,6 +96,7 @@ com.logpresso.dnsproxy
 │   └── SingleRecordFilter.java  # 타입당 1개 필터
 └── cache/
 └── DnsCache.java            # TTL 캐시
+```
 
 ### 7. 의존성
 ```xml
