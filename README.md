@@ -125,7 +125,7 @@ java -jar dns-single-proxy.jar --config /etc/systemd/resolved.conf
 ```
 
 #### 8.3 Systemd 서비스
-ini
+```ini
 [Unit]
 Description=DNS Single Proxy
 After=network.target
@@ -135,13 +135,16 @@ Restart=always
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
+```
 
 ### 9. 로깅
+```
 INFO  - 서버 시작/종료
 INFO  - 설정 로드 완료
 WARN  - Upstream 쿼리 실패, 폴백 사용
 DEBUG - 개별 쿼리/응답 (기본 off)
 ERROR - 바인드 실패, 설정 파싱 오류
+```
 
 ### 10. 테스트 시나리오
 | 케이스 | 검증 |
