@@ -124,15 +124,60 @@ java -jar dns-single-proxy.jar
 java -jar dns-single-proxy.jar --config /etc/systemd/resolved.conf
 ```
 
-#### 8.3 Systemd 서비스
+#### 8.3 systemd 서비스 설치/제거
+
+##### 설치 (--install)
+systemd-resolved를 대체하여 시스템 DNS 서비스로 설치합니다.
+
+```bash
+# 빌드 후 설치 (root 권한 필요)
+mvn clean package -DskipTests
+sudo java -jar target/dns-single-proxy.jar --install
+```
+
+**설치 과정:**
+1. systemd-resolved 서비스 중지 및 비활성화
+2. `/opt/dns-single-proxy/` 디렉토리 생성
+3. JAR 파일 복사
+4. systemd 서비스 파일 생성 (`/etc/systemd/system/dns-single-proxy.service`)
+5. 서비스 활성화 및 시작
+
+**설치 후 확인:**
+```bash
+systemctl status dns-single-proxy
+journalctl -u dns-single-proxy -f
+```
+
+##### 제거 (--uninstall)
+dns-single-proxy를 제거하고 systemd-resolved를 복원합니다.
+
+```bash
+sudo java -jar /opt/dns-single-proxy/dns-single-proxy.jar --uninstall
+```
+
+**제거 과정:**
+1. dns-single-proxy 서비스 중지 및 비활성화
+2. 서비스 파일 삭제
+3. `/opt/dns-single-proxy/` 디렉토리 삭제
+4. systemd-resolved 재활성화 및 시작
+
+#### 8.4 수동 Systemd 서비스 설정 (참고용)
+`--install` 옵션이 자동으로 생성하는 서비스 파일 내용:
 ```ini
 [Unit]
 Description=DNS Single Proxy
+Documentation=https://github.com/logpresso/dns-single-proxy
 After=network.target
+Before=nss-lookup.target
+Wants=nss-lookup.target
+
 [Service]
+Type=simple
 ExecStart=/usr/bin/java -jar /opt/dns-single-proxy/dns-single-proxy.jar
 Restart=always
+RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE
+
 [Install]
 WantedBy=multi-user.target
 ```
