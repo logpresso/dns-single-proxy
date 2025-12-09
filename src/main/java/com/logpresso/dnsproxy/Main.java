@@ -93,10 +93,14 @@ public class Main {
                 System.exit(1);
             }
 
-            // Step 1: Stop and disable systemd-resolved
-            System.out.println("Stopping systemd-resolved...");
-            runCommand("systemctl", "stop", "systemd-resolved");
-            runCommand("systemctl", "disable", "systemd-resolved");
+            // Step 1: Stop and disable systemd-resolved (if it exists)
+            if (isServiceExists("systemd-resolved")) {
+                System.out.println("Stopping systemd-resolved...");
+                runCommandIgnoreError("systemctl", "stop", "systemd-resolved");
+                runCommandIgnoreError("systemctl", "disable", "systemd-resolved");
+            } else {
+                System.out.println("systemd-resolved not found, skipping...");
+            }
 
             // Step 2: Create installation directory
             Path installDir = Paths.get(INSTALL_DIR);
@@ -164,14 +168,19 @@ public class Main {
                 deleteDirectory(installDir);
             }
 
-            // Step 5: Re-enable and start systemd-resolved
-            System.out.println("Restoring systemd-resolved...");
-            runCommand("systemctl", "enable", "systemd-resolved");
-            runCommand("systemctl", "start", "systemd-resolved");
-
-            System.out.println();
-            System.out.println("Uninstallation complete!");
-            System.out.println("systemd-resolved has been restored.");
+            // Step 5: Re-enable and start systemd-resolved (if it exists)
+            if (isServiceExists("systemd-resolved")) {
+                System.out.println("Restoring systemd-resolved...");
+                runCommandIgnoreError("systemctl", "enable", "systemd-resolved");
+                runCommandIgnoreError("systemctl", "start", "systemd-resolved");
+                System.out.println();
+                System.out.println("Uninstallation complete!");
+                System.out.println("systemd-resolved has been restored.");
+            } else {
+                System.out.println();
+                System.out.println("Uninstallation complete!");
+                System.out.println("Note: systemd-resolved not found, no DNS service restored.");
+            }
 
         } catch (Exception e) {
             System.err.println("Uninstallation failed: " + e.getMessage());
@@ -183,6 +192,20 @@ public class Main {
     private static boolean isRoot() {
         String user = System.getProperty("user.name");
         return "root".equals(user);
+    }
+
+    private static boolean isServiceExists(String serviceName) {
+        try {
+            // 'systemctl cat' returns exit code 0 if service exists, non-zero otherwise
+            ProcessBuilder pb = new ProcessBuilder("systemctl", "cat", serviceName + ".service");
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+            return exitCode == 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static Path findCurrentJar() {
