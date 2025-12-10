@@ -119,13 +119,14 @@ public class Main {
             Files.writeString(serviceFile, serviceContent);
 
             // Step 5: Reload systemd and enable service
-            System.out.println("Enabling and starting service...");
+            boolean isUpgrade = isServiceExists(SERVICE_NAME);
+            System.out.println(isUpgrade ? "Upgrading service..." : "Enabling and starting service...");
             runCommand("systemctl", "daemon-reload");
             runCommand("systemctl", "enable", SERVICE_NAME);
-            runCommand("systemctl", "start", SERVICE_NAME);
+            runCommand("systemctl", "restart", SERVICE_NAME);
 
             System.out.println();
-            System.out.println("Installation complete!");
+            System.out.println(isUpgrade ? "Upgrade complete!" : "Installation complete!");
             System.out.println("  Service status: systemctl status " + SERVICE_NAME);
             System.out.println("  View logs:      journalctl -u " + SERVICE_NAME + " -f");
 
