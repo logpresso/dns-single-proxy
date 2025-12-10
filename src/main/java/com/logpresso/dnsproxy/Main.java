@@ -21,8 +21,10 @@ public class Main {
 
     public static void main(String[] args) {
         String configPath = "/etc/systemd/resolved.conf";
-        String javaPath = DEFAULT_JAVA_PATH;
+        String javaPath = null;  // null means not specified, will use existing or default
+        String command = null;   // install, uninstall, help, version
 
+        // Parse all arguments first
         for (int i = 0; i < args.length; i++) {
             if ("--config".equals(args[i]) && i + 1 < args.length) {
                 configPath = args[i + 1];
@@ -35,18 +37,29 @@ public class Main {
             } else if (args[i].startsWith("--java=")) {
                 javaPath = args[i].substring("--java=".length());
             } else if ("--help".equals(args[i]) || "-h".equals(args[i])) {
-                printHelp();
-                return;
+                command = "help";
             } else if ("--version".equals(args[i]) || "-v".equals(args[i])) {
-                printVersion();
-                return;
+                command = "version";
             } else if ("--install".equals(args[i])) {
-                install(javaPath);
-                return;
+                command = "install";
             } else if ("--uninstall".equals(args[i])) {
-                uninstall();
-                return;
+                command = "uninstall";
             }
+        }
+
+        // Execute command after all arguments are parsed
+        if ("help".equals(command)) {
+            printHelp();
+            return;
+        } else if ("version".equals(command)) {
+            printVersion();
+            return;
+        } else if ("install".equals(command)) {
+            install(javaPath);
+            return;
+        } else if ("uninstall".equals(command)) {
+            uninstall();
+            return;
         }
 
         ResolvedConfigParser parser = new ResolvedConfigParser();
@@ -124,6 +137,25 @@ public class Main {
         System.out.println("Installing DNS Single Proxy as systemd service...");
 
         try {
+            // Check if this is an upgrade
+            Path serviceFile = Paths.get("/etc/systemd/system/" + SERVICE_NAME + ".service");
+            boolean isUpgrade = Files.exists(serviceFile);
+
+            // Determine Java path: explicit > existing > default
+            if (javaPath == null) {
+                if (isUpgrade) {
+                    String existingJavaPath = readExistingJavaPath(serviceFile);
+                    if (existingJavaPath != null) {
+                        javaPath = existingJavaPath;
+                        System.out.println("Using existing Java path: " + javaPath);
+                    } else {
+                        javaPath = DEFAULT_JAVA_PATH;
+                    }
+                } else {
+                    javaPath = DEFAULT_JAVA_PATH;
+                }
+            }
+
             // Validate Java executable path first (user can fix this without sudo)
             Path javaExecutable = Paths.get(javaPath);
             if (!Files.exists(javaExecutable)) {
@@ -168,14 +200,12 @@ public class Main {
             Files.copy(jarPath, targetJar, StandardCopyOption.REPLACE_EXISTING);
 
             // Step 4: Create systemd service file
-            Path serviceFile = Paths.get("/etc/systemd/system/" + SERVICE_NAME + ".service");
             System.out.println("Creating systemd service file: " + serviceFile);
             System.out.println("Using Java: " + javaPath);
             String serviceContent = createServiceFileContent(javaPath);
             Files.writeString(serviceFile, serviceContent);
 
             // Step 5: Reload systemd and enable service
-            boolean isUpgrade = isServiceExists(SERVICE_NAME);
             System.out.println(isUpgrade ? "Upgrading service..." : "Enabling and starting service...");
             runCommand("systemctl", "daemon-reload");
             runCommand("systemctl", "enable", SERVICE_NAME);
@@ -263,6 +293,27 @@ public class Main {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static String readExistingJavaPath(Path serviceFile) {
+        try {
+            // Parse ExecStart line to extract Java path
+            // Format: ExecStart=/path/to/java -jar /opt/dns-single-proxy/dns-single-proxy.jar
+            for (String line : Files.readAllLines(serviceFile)) {
+                line = line.trim();
+                if (line.startsWith("ExecStart=")) {
+                    String execStart = line.substring("ExecStart=".length()).trim();
+                    // Java path is the first token before " -jar"
+                    int jarIndex = execStart.indexOf(" -jar");
+                    if (jarIndex > 0) {
+                        return execStart.substring(0, jarIndex);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // Ignore and return null
+        }
+        return null;
     }
 
     private static Path findCurrentJar() {
