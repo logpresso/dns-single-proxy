@@ -145,7 +145,7 @@ for (ResourceRecord rr : response.getAnswers()) {
 response.setAnswers(filtered);
 ```
 
-**참고:** 타입당 첫 번째 레코드만 선택하므로, Upstream DNS가 응답 순서를 변경(Round-Robin)하면 캐시 만료 후 다른 IP가 반환될 수 있습니다. 이는 DNS 기반 로드밸런싱이 의도한 동작입니다.
+**참고:** 타입당 첫 번째 레코드만 선택하므로, Upstream DNS가 응답 순서를 변경(Round-Robin)하면 캐시 만료 후 다른 IP가 반환될 수 있습니다. 로드밸런싱용 DNS는 일반적으로 TTL이 짧아(30~300초) 로드밸런싱 효과가 유지됩니다.
 
 ### 5. 캐시 스펙
 | 항목 | 값 |
