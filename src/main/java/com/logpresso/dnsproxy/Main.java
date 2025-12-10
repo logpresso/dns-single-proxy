@@ -98,7 +98,6 @@ public class Main {
         System.out.println();
         System.out.println("Description:");
         System.out.println("  DNS proxy that limits response records to one per type.");
-        System.out.println("  This helps avoid __check_pf() calls on macOS.");
     }
 
     private static void printVersion() {
