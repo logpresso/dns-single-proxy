@@ -8,16 +8,20 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.Properties;
 
 public class Main {
 
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static final String VERSION = loadVersion();
     private static final String INSTALL_DIR = "/opt/dns-single-proxy";
     private static final String SERVICE_NAME = "dns-single-proxy";
     private static final String JAR_NAME = "dns-single-proxy.jar";
+    private static final String DEFAULT_JAVA_PATH = "/usr/bin/java";
 
     public static void main(String[] args) {
         String configPath = "/etc/systemd/resolved.conf";
+        String javaPath = DEFAULT_JAVA_PATH;
 
         for (int i = 0; i < args.length; i++) {
             if ("--config".equals(args[i]) && i + 1 < args.length) {
@@ -25,11 +29,19 @@ public class Main {
                 i++;
             } else if (args[i].startsWith("--config=")) {
                 configPath = args[i].substring("--config=".length());
+            } else if ("--java".equals(args[i]) && i + 1 < args.length) {
+                javaPath = args[i + 1];
+                i++;
+            } else if (args[i].startsWith("--java=")) {
+                javaPath = args[i].substring("--java=".length());
             } else if ("--help".equals(args[i]) || "-h".equals(args[i])) {
                 printHelp();
                 return;
+            } else if ("--version".equals(args[i]) || "-v".equals(args[i])) {
+                printVersion();
+                return;
             } else if ("--install".equals(args[i])) {
-                install();
+                install(javaPath);
                 return;
             } else if ("--uninstall".equals(args[i])) {
                 uninstall();
@@ -71,14 +83,17 @@ public class Main {
     }
 
     private static void printHelp() {
-        System.out.println("DNS Single Proxy");
+        System.out.println("DNS Single Proxy v" + VERSION);
         System.out.println();
         System.out.println("Usage: java -jar dns-single-proxy.jar [options]");
         System.out.println();
         System.out.println("Options:");
         System.out.println("  --config <path>  Path to resolved.conf (default: /etc/systemd/resolved.conf)");
         System.out.println("  --install        Install as systemd service (stops systemd-resolved)");
+        System.out.println("  --java <path>    Java executable path for systemd service (default: /usr/bin/java)");
+        System.out.println("                   Only used with --install");
         System.out.println("  --uninstall      Uninstall service and restore systemd-resolved");
+        System.out.println("  --version, -v    Show version information");
         System.out.println("  --help, -h       Show this help message");
         System.out.println();
         System.out.println("Description:");
@@ -86,10 +101,41 @@ public class Main {
         System.out.println("  This helps avoid __check_pf() calls on macOS.");
     }
 
-    private static void install() {
+    private static void printVersion() {
+        System.out.println("DNS Single Proxy v" + VERSION);
+    }
+
+    private static String loadVersion() {
+        try (InputStream is = Main.class.getResourceAsStream("/version.properties")) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                String version = props.getProperty("version");
+                if (version != null && !version.isEmpty() && !version.startsWith("${")) {
+                    return version;
+                }
+            }
+        } catch (IOException e) {
+            // Ignore and use fallback
+        }
+        return "unknown";
+    }
+
+    private static void install(String javaPath) {
         System.out.println("Installing DNS Single Proxy as systemd service...");
 
         try {
+            // Validate Java executable path first (user can fix this without sudo)
+            Path javaExecutable = Paths.get(javaPath);
+            if (!Files.exists(javaExecutable)) {
+                System.err.println("Error: Java executable not found: " + javaPath);
+                System.exit(1);
+            }
+            if (!Files.isExecutable(javaExecutable)) {
+                System.err.println("Error: Java path is not executable: " + javaPath);
+                System.exit(1);
+            }
+
             // Check if running as root
             if (!isRoot()) {
                 System.err.println("Error: --install requires root privileges. Run with sudo.");
@@ -125,7 +171,8 @@ public class Main {
             // Step 4: Create systemd service file
             Path serviceFile = Paths.get("/etc/systemd/system/" + SERVICE_NAME + ".service");
             System.out.println("Creating systemd service file: " + serviceFile);
-            String serviceContent = createServiceFileContent();
+            System.out.println("Using Java: " + javaPath);
+            String serviceContent = createServiceFileContent(javaPath);
             Files.writeString(serviceFile, serviceContent);
 
             // Step 5: Reload systemd and enable service
@@ -252,7 +299,7 @@ public class Main {
         }
     }
 
-    private static String createServiceFileContent() {
+    private static String createServiceFileContent(String javaPath) {
         return "[Unit]\n" +
                "Description=DNS Single Proxy\n" +
                "Documentation=https://github.com/logpresso/dns-single-proxy\n" +
@@ -262,7 +309,7 @@ public class Main {
                "\n" +
                "[Service]\n" +
                "Type=simple\n" +
-               "ExecStart=/usr/bin/java -jar " + INSTALL_DIR + "/" + JAR_NAME + "\n" +
+               "ExecStart=" + javaPath + " -jar " + INSTALL_DIR + "/" + JAR_NAME + "\n" +
                "Restart=always\n" +
                "RestartSec=5\n" +
                "AmbientCapabilities=CAP_NET_BIND_SERVICE\n" +

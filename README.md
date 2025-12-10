@@ -207,7 +207,19 @@ systemd-resolved를 대체하여 시스템 DNS 서비스로 설치합니다.
 # 빌드 후 설치 (root 권한 필요)
 mvn clean package -DskipTests
 sudo java -jar target/dns-single-proxy.jar --install
+
+# 특정 Java 경로 지정 (예: OpenJDK 17)
+sudo java -jar target/dns-single-proxy.jar --java /usr/lib/jvm/java-17-openjdk/bin/java --install
+
+# 또는 = 형식으로도 가능
+sudo java -jar target/dns-single-proxy.jar --java=/opt/java/bin/java --install
 ```
+
+**--java 옵션:**
+- systemd 서비스 파일의 `ExecStart`에 사용할 Java 실행 파일 경로 지정
+- 기본값: `/usr/bin/java`
+- 시스템에 여러 Java 버전이 설치된 경우 특정 버전 선택 가능
+- `--install`과 함께 사용할 때만 의미 있음
 
 **설치 과정:**
 1. systemd-resolved 서비스 중지 및 비활성화
@@ -255,6 +267,8 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
 ```
+
+**참고:** `--java` 옵션을 사용하면 `ExecStart`의 Java 경로가 지정된 경로로 변경됩니다.
 
 ### 9. 로깅
 ```
