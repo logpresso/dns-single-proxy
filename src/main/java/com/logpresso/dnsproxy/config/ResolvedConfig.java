@@ -79,9 +79,6 @@ public final class ResolvedConfig {
         private List<String> dnsStubListenerExtra = new ArrayList<>();
         private String bindAddress = "127.0.0.53";
 
-        private static final List<String> DEFAULT_DNS = List.of("8.8.8.8");
-        private static final List<String> DEFAULT_FALLBACK_DNS = List.of("1.1.1.1");
-
         private Builder() {}
 
         public Builder dns(List<String> dns) {
