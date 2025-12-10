@@ -11,14 +11,16 @@ public final class ResolvedConfig {
     private final boolean dnsStubListener;
     private final List<String> dnsStubListenerExtra;
     private final String bindAddress;
+    private final String warning;
 
-    private ResolvedConfig(Builder builder) {
+    private ResolvedConfig(Builder builder, String warning) {
         this.dns = List.copyOf(builder.dns);
         this.fallbackDns = List.copyOf(builder.fallbackDns);
         this.cache = builder.cache;
         this.dnsStubListener = builder.dnsStubListener;
         this.dnsStubListenerExtra = List.copyOf(builder.dnsStubListenerExtra);
         this.bindAddress = builder.bindAddress;
+        this.warning = warning;
     }
 
     public static Builder builder() {
@@ -47,6 +49,14 @@ public final class ResolvedConfig {
 
     public String getBindAddress() {
         return bindAddress;
+    }
+
+    public String getWarning() {
+        return warning;
+    }
+
+    public boolean hasWarning() {
+        return warning != null;
     }
 
     @Override
@@ -108,15 +118,27 @@ public final class ResolvedConfig {
             return !dns.isEmpty();
         }
 
+        public boolean hasFallbackDns() {
+            return !fallbackDns.isEmpty();
+        }
+
         public ResolvedConfig build() {
-            // Apply defaults if empty
+            String warning = null;
+
             if (dns.isEmpty()) {
-                dns.addAll(DEFAULT_DNS);
+                if (!fallbackDns.isEmpty()) {
+                    // Use first FallbackDNS as primary DNS
+                    String promoted = fallbackDns.get(0);
+                    dns.add(promoted);
+                    warning = "No DNS configured. Using first FallbackDNS (" + promoted + ") as primary DNS.";
+                } else {
+                    // No DNS and no FallbackDNS - this is an error
+                    throw new IllegalStateException(
+                            "No DNS servers configured. Please set DNS= in resolved.conf or add nameserver entries to /etc/resolv.conf");
+                }
             }
-            if (fallbackDns.isEmpty()) {
-                fallbackDns.addAll(DEFAULT_FALLBACK_DNS);
-            }
-            return new ResolvedConfig(this);
+
+            return new ResolvedConfig(this, warning);
         }
     }
 

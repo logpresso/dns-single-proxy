@@ -16,15 +16,36 @@ class ResolvedConfigParserTest {
     Path tempDir;
 
     @Test
-    void testParseDefaultValues() {
+    void testParseNoDnsConfiguredThrowsException() {
         ResolvedConfigParser parser = new ResolvedConfigParser();
-        ResolvedConfig config = parser.parse("/non/existent/path");
 
-        assertEquals(List.of("8.8.8.8"), config.getDns());
-        assertEquals(List.of("1.1.1.1"), config.getFallbackDns());
-        assertTrue(config.isCache());
-        assertTrue(config.isDnsStubListener());
-        assertTrue(config.getDnsStubListenerExtra().isEmpty());
+        // When no DNS and no FallbackDNS configured, should throw exception
+        assertThrows(IllegalStateException.class, () -> {
+            parser.parse("/non/existent/path");
+        });
+    }
+
+    @Test
+    void testFallbackDnsPromotedToPrimaryWhenNoDns() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile,
+                "[Resolve]\n" +
+                "FallbackDNS=172.20.0.2\n" +
+                "FallbackDNS=172.20.0.5\n" +
+                "FallbackDNS=8.8.8.8\n");
+
+        // Mock empty resolv.conf
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "# empty\n");
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString());
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // First FallbackDNS should be promoted to primary DNS
+        assertEquals(List.of("172.20.0.2"), config.getDns());
+        assertEquals(List.of("172.20.0.2", "172.20.0.5", "8.8.8.8"), config.getFallbackDns());
+        assertTrue(config.hasWarning());
+        assertTrue(config.getWarning().contains("172.20.0.2"));
     }
 
     @Test
@@ -87,19 +108,19 @@ class ResolvedConfigParserTest {
     void testParseBooleanValues() throws IOException {
         Path configFile = tempDir.resolve("resolved.conf");
 
-        Files.writeString(configFile, "[Resolve]\nCache=yes\n");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\nCache=yes\n");
         assertTrue(new ResolvedConfigParser().parse(configFile.toString()).isCache());
 
-        Files.writeString(configFile, "[Resolve]\nCache=true\n");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\nCache=true\n");
         assertTrue(new ResolvedConfigParser().parse(configFile.toString()).isCache());
 
-        Files.writeString(configFile, "[Resolve]\nCache=1\n");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\nCache=1\n");
         assertTrue(new ResolvedConfigParser().parse(configFile.toString()).isCache());
 
-        Files.writeString(configFile, "[Resolve]\nCache=no\n");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\nCache=no\n");
         assertFalse(new ResolvedConfigParser().parse(configFile.toString()).isCache());
 
-        Files.writeString(configFile, "[Resolve]\nCache=false\n");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\nCache=false\n");
         assertFalse(new ResolvedConfigParser().parse(configFile.toString()).isCache());
     }
 

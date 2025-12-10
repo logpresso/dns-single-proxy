@@ -38,9 +38,19 @@ public class Main {
         }
 
         ResolvedConfigParser parser = new ResolvedConfigParser();
-        ResolvedConfig config = parser.parse(configPath);
+        ResolvedConfig config;
+        try {
+            config = parser.parse(configPath);
+        } catch (IllegalStateException e) {
+            logger.error("logpresso dnsproxy: Configuration error - {}", e.getMessage());
+            System.exit(1);
+            return;
+        }
 
         logger.info("logpresso dnsproxy: Starting DNS Single Proxy");
+        if (config.hasWarning()) {
+            logger.warn("logpresso dnsproxy: {}", config.getWarning());
+        }
         logger.info("logpresso dnsproxy: Primary DNS: {}", config.getDns());
         logger.info("logpresso dnsproxy: Fallback DNS: {}", config.getFallbackDns());
         logger.info("logpresso dnsproxy: Cache enabled: {}", config.isCache());

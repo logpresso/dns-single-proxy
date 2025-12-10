@@ -49,13 +49,19 @@
        ↓ (없으면)
 2. /etc/resolv.conf의 nameserver 항목
        ↓ (없으면)
-3. 기본값 8.8.8.8
+3. FallbackDNS의 첫 번째 항목을 Primary로 승격 (경고 출력)
+       ↓ (없으면)
+4. 시작 실패 (에러)
 ```
 
 **참고:**
 - `/etc/resolv.conf` 파싱 시 localhost (127.0.0.1, 127.0.0.53, ::1) 주소는 무시
 - `DNS=` 설정이 있으면 `/etc/resolv.conf`는 사용하지 않음
 - `FallbackDNS=`는 Primary DNS 전체 실패 시에만 사용
+- Primary DNS가 FallbackDNS에서 승격된 경우 시작 시 경고 로그 출력:
+  ```
+  WARN  - No DNS configured. Using first FallbackDNS (x.x.x.x) as primary DNS.
+  ```
 
 #### 3.5 DNS 설정 예시
 ```ini
