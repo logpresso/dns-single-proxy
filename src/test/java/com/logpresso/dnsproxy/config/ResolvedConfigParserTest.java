@@ -353,6 +353,22 @@ class ResolvedConfigParserTest {
         assertEquals(List.of("1.1.1.1"), config.getDns());
     }
 
+    @Test
+    void testNetworkctlNotAvailable() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\n");
+
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "nameserver 8.8.8.8\n");
+
+        // Simulate networkctl not available (throws IOException)
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), null);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // Should fall back to resolved.conf DNS= setting
+        assertEquals(List.of("1.1.1.1"), config.getDns());
+    }
+
     /**
      * Test helper class that allows overriding the resolv.conf path and networkctl output
      */
@@ -375,7 +391,11 @@ class ResolvedConfigParserTest {
         }
 
         @Override
-        protected List<String> getNetworkctlOutput() {
+        protected List<String> getNetworkctlOutput() throws IOException {
+            if (networkctlOutput == null) {
+                // Simulate networkctl not available
+                throw new IOException("networkctl: command not found");
+            }
             return networkctlOutput;
         }
     }
