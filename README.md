@@ -1,4 +1,4 @@
-## DNS Single Proxy - Java 구현 스펙
+## DNS Single Proxy
 
 ### 1. 프로젝트 개요
 | 항목 | 내용 |
