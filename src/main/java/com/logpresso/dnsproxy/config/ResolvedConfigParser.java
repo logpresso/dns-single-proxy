@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +36,12 @@ public class ResolvedConfigParser {
         if (Files.exists(dropInDir) && Files.isDirectory(dropInDir))
             parseDropInDirectory(dropInDir, builder);
 
-        // If no DNS= configured, fall back to /etc/resolv.conf (systemd-resolved compatible behavior)
+        // If no DNS= configured, try networkctl status (DHCP-provided DNS)
+        if (!builder.hasDns()) {
+            parseNetworkctl(builder);
+        }
+
+        // If still no DNS, fall back to /etc/resolv.conf (systemd-resolved compatible behavior)
         if (!builder.hasDns()) {
             parseResolvConf(builder);
         }
@@ -207,6 +213,41 @@ public class ResolvedConfigParser {
                server.equals("127.0.0.53") ||
                server.equals("::1") ||
                server.startsWith("127.");
+    }
+
+    private void parseNetworkctl(ResolvedConfig.Builder builder) {
+        List<String> dnsServers = new ArrayList<>();
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder("networkctl", "status");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    // Parse "DNS: 10.20.30.40" format
+                    if (line.startsWith("DNS:")) {
+                        String dnsValue = line.substring(4).trim();
+                        if (!dnsValue.isEmpty() && !isLocalhost(dnsValue)) {
+                            dnsServers.add(dnsValue);
+                        }
+                    }
+                }
+            }
+
+            process.waitFor();
+        } catch (IOException | InterruptedException e) {
+            logger.debug("logpresso dnsproxy: Failed to run networkctl status: {}", e.getMessage());
+            return;
+        }
+
+        if (!dnsServers.isEmpty()) {
+            logger.info("logpresso dnsproxy: No DNS= configured, using {} DNS servers from networkctl",
+                    dnsServers.size());
+            builder.dns(dnsServers);
+        }
     }
 
 }
