@@ -26,22 +26,23 @@ public class ResolvedConfigParser {
     public ResolvedConfig parse(String configPath) {
         ResolvedConfig.Builder builder = ResolvedConfig.builder();
 
-        Path mainConfig = Paths.get(configPath);
-        if (Files.exists(mainConfig))
-            parseFile(mainConfig, builder);
-        else
-            logger.info("logpresso dnsproxy: Config file not found: {}, using defaults", configPath);
+        // 1. Try networkctl status first (DHCP-provided DNS has highest priority)
+        parseNetworkctl(builder);
 
-        Path dropInDir = Paths.get(CONFIG_DROP_IN_DIR);
-        if (Files.exists(dropInDir) && Files.isDirectory(dropInDir))
-            parseDropInDirectory(dropInDir, builder);
-
-        // If no DNS= configured, try networkctl status (DHCP-provided DNS)
+        // 2. Parse resolved.conf (only if networkctl didn't provide DNS)
         if (!builder.hasDns()) {
-            parseNetworkctl(builder);
+            Path mainConfig = Paths.get(configPath);
+            if (Files.exists(mainConfig))
+                parseFile(mainConfig, builder);
+            else
+                logger.info("logpresso dnsproxy: Config file not found: {}, using defaults", configPath);
+
+            Path dropInDir = Paths.get(CONFIG_DROP_IN_DIR);
+            if (Files.exists(dropInDir) && Files.isDirectory(dropInDir))
+                parseDropInDirectory(dropInDir, builder);
         }
 
-        // If still no DNS, fall back to /etc/resolv.conf (systemd-resolved compatible behavior)
+        // 3. Fall back to /etc/resolv.conf
         if (!builder.hasDns()) {
             parseResolvConf(builder);
         }

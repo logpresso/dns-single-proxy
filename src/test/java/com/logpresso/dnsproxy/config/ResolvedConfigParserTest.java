@@ -314,7 +314,7 @@ class ResolvedConfigParserTest {
     }
 
     @Test
-    void testDnsSettingTakesPrecedenceOverNetworkctl() throws IOException {
+    void testNetworkctlTakesPrecedenceOverDnsSetting() throws IOException {
         Path configFile = tempDir.resolve("resolved.conf");
         Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\n");
 
@@ -328,7 +328,28 @@ class ResolvedConfigParserTest {
         ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
         ResolvedConfig config = parser.parse(configFile.toString());
 
-        // DNS= setting should take precedence over networkctl
+        // networkctl (DHCP) should take precedence over DNS= setting
+        assertEquals(List.of("10.20.30.40"), config.getDns());
+    }
+
+    @Test
+    void testDnsSettingUsedWhenNoNetworkctl() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\n");
+
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "nameserver 8.8.8.8\n");
+
+        // Empty networkctl output (no DNS from DHCP)
+        List<String> networkctlOutput = List.of(
+                "State: routable",
+                "Online state: online"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // DNS= setting should be used when networkctl has no DNS
         assertEquals(List.of("1.1.1.1"), config.getDns());
     }
 

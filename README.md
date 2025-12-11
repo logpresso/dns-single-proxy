@@ -43,11 +43,11 @@
   - 같은 키를 여러 줄로 작성하면 모두 누적됨
   - 공백으로 구분된 여러 값도 지원
 
-#### 3.4 DNS 서버 우선순위 (systemd-resolved 호환)
+#### 3.4 DNS 서버 우선순위
 ```
-1. resolved.conf의 DNS= 설정
+1. networkctl status의 DNS (DHCP로 받은 DNS) - 최우선
        ↓ (없으면)
-2. networkctl status의 DNS (DHCP로 받은 DNS)
+2. resolved.conf의 DNS= 설정
        ↓ (없으면)
 3. /etc/resolv.conf의 nameserver 항목
        ↓ (없으면)
@@ -58,8 +58,8 @@
 
 **참고:**
 - `networkctl status` 출력에서 `DNS: x.x.x.x` 형식의 라인을 파싱 (DHCP 환경 지원)
-- `/etc/resolv.conf` 파싱 시 localhost (127.0.0.1, 127.0.0.53, ::1) 주소는 무시
-- `DNS=` 설정이 있으면 이후 단계는 사용하지 않음
+- DHCP로 받은 DNS가 실제 네트워크 환경을 반영하므로 최우선 적용
+- localhost (127.0.0.1, 127.0.0.53, ::1) 주소는 무시
 - `FallbackDNS=`는 Primary DNS 전체 실패 시에만 사용
 - Primary DNS가 FallbackDNS에서 승격된 경우 시작 시 경고 로그 출력:
   ```
