@@ -219,25 +219,17 @@ public class ResolvedConfigParser {
         List<String> dnsServers = new ArrayList<>();
 
         try {
-            ProcessBuilder pb = new ProcessBuilder("networkctl", "status");
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    line = line.trim();
-                    // Parse "DNS: 10.20.30.40" format
-                    if (line.startsWith("DNS:")) {
-                        String dnsValue = line.substring(4).trim();
-                        if (!dnsValue.isEmpty() && !isLocalhost(dnsValue)) {
-                            dnsServers.add(dnsValue);
-                        }
+            List<String> lines = getNetworkctlOutput();
+            for (String line : lines) {
+                line = line.trim();
+                // Parse "DNS: 10.20.30.40" format
+                if (line.startsWith("DNS:")) {
+                    String dnsValue = line.substring(4).trim();
+                    if (!dnsValue.isEmpty() && !isLocalhost(dnsValue)) {
+                        dnsServers.add(dnsValue);
                     }
                 }
             }
-
-            process.waitFor();
         } catch (IOException | InterruptedException e) {
             logger.debug("logpresso dnsproxy: Failed to run networkctl status: {}", e.getMessage());
             return;
@@ -248,6 +240,23 @@ public class ResolvedConfigParser {
                     dnsServers.size());
             builder.dns(dnsServers);
         }
+    }
+
+    protected List<String> getNetworkctlOutput() throws IOException, InterruptedException {
+        List<String> lines = new ArrayList<>();
+        ProcessBuilder pb = new ProcessBuilder("networkctl", "status");
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+        }
+
+        process.waitFor();
+        return lines;
     }
 
 }

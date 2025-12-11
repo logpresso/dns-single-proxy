@@ -221,19 +221,117 @@ class ResolvedConfigParserTest {
         assertEquals(List.of("1.1.1.1"), config.getDns());
     }
 
+    @Test
+    void testNetworkctlDnsParsing() throws IOException {
+        // Create resolved.conf without DNS= setting
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nCache=yes\n");
+
+        // Mock empty resolv.conf
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "# empty\n");
+
+        // Mock networkctl output with DNS
+        List<String> networkctlOutput = List.of(
+                "● 2: eth0",
+                "       Link File: /usr/lib/systemd/network/99-default.link",
+                "           State: routable (configured)",
+                "         Address: 192.168.1.100",
+                "         Gateway: 192.168.1.1",
+                "             DNS: 10.20.30.40",
+                "             DNS: 10.20.30.41"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        assertEquals(List.of("10.20.30.40", "10.20.30.41"), config.getDns());
+    }
+
+    @Test
+    void testNetworkctlDnsSkipsLocalhost() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nCache=yes\n");
+
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "# empty\n");
+
+        List<String> networkctlOutput = List.of(
+                "             DNS: 127.0.0.53",
+                "             DNS: 127.0.0.1",
+                "             DNS: 8.8.8.8"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        assertEquals(List.of("8.8.8.8"), config.getDns());
+    }
+
+    @Test
+    void testNetworkctlTakesPrecedenceOverResolvConf() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nCache=yes\n");
+
+        // resolv.conf has different DNS
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "nameserver 1.1.1.1\n");
+
+        // networkctl has DNS - should take precedence
+        List<String> networkctlOutput = List.of(
+                "             DNS: 10.20.30.40"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // networkctl should be used, not resolv.conf
+        assertEquals(List.of("10.20.30.40"), config.getDns());
+    }
+
+    @Test
+    void testDnsSettingTakesPrecedenceOverNetworkctl() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\n");
+
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "nameserver 8.8.8.8\n");
+
+        List<String> networkctlOutput = List.of(
+                "             DNS: 10.20.30.40"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        // DNS= setting should take precedence over networkctl
+        assertEquals(List.of("1.1.1.1"), config.getDns());
+    }
+
     /**
-     * Test helper class that allows overriding the resolv.conf path
+     * Test helper class that allows overriding the resolv.conf path and networkctl output
      */
     static class TestableResolvedConfigParser extends ResolvedConfigParser {
         private final String resolvConfPath;
+        private final List<String> networkctlOutput;
 
         TestableResolvedConfigParser(String resolvConfPath) {
+            this(resolvConfPath, List.of());
+        }
+
+        TestableResolvedConfigParser(String resolvConfPath, List<String> networkctlOutput) {
             this.resolvConfPath = resolvConfPath;
+            this.networkctlOutput = networkctlOutput;
         }
 
         @Override
         protected String getResolvConfPath() {
             return resolvConfPath;
+        }
+
+        @Override
+        protected List<String> getNetworkctlOutput() {
+            return networkctlOutput;
         }
     }
 
