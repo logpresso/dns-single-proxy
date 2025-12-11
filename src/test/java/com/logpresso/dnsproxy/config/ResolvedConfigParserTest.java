@@ -290,6 +290,30 @@ class ResolvedConfigParserTest {
     }
 
     @Test
+    void testNetworkctlRealWorldOutput() throws IOException {
+        Path configFile = tempDir.resolve("resolved.conf");
+        Files.writeString(configFile, "[Resolve]\nCache=yes\n");
+
+        Path resolvConf = tempDir.resolve("resolv.conf");
+        Files.writeString(resolvConf, "# empty\n");
+
+        // Real-world networkctl status output
+        List<String> networkctlOutput = List.of(
+                "State: routable",
+                "Online state: online",
+                "Address: 10.13.42.78 on eth0",
+                "Gateway: 10.13.42.65 on eth0",
+                "DNS: 10.20.30.40",
+                "Search Domains: dakao.io"
+        );
+
+        ResolvedConfigParser parser = new TestableResolvedConfigParser(resolvConf.toString(), networkctlOutput);
+        ResolvedConfig config = parser.parse(configFile.toString());
+
+        assertEquals(List.of("10.20.30.40"), config.getDns());
+    }
+
+    @Test
     void testDnsSettingTakesPrecedenceOverNetworkctl() throws IOException {
         Path configFile = tempDir.resolve("resolved.conf");
         Files.writeString(configFile, "[Resolve]\nDNS=1.1.1.1\n");
